@@ -11,8 +11,9 @@ func CheckPwd(pwd []byte, hashedPwd []byte) bool {
 	return err == nil
 }
 
-func HashPassword(pwd []byte) []byte {
-	bytes, err := bcrypt.GenerateFromPassword(pwd, 10)
+func HashPassword(pwd string) []byte {
+	pswrd := []byte(pwd)
+	bytes, err := bcrypt.GenerateFromPassword(pswrd, 10)
 	if err != nil {
 		log.Printf("Error hash password: %e", err)
 	}
