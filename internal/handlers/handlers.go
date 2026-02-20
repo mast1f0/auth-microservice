@@ -23,7 +23,9 @@ type Handlers struct {
 type storage interface {
 	UserByLogin(login string) (*models.User, error)
 	AddUser(user *models.User) error
-	UserExists() bool
+	UserExists(login string) bool
+	UserCount() uint
+	UserByID(id uint) (*models.User, error)
 }
 
 func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
@@ -38,10 +40,10 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	if !crypto.CheckPwd([]byte(user.HashedPwd), []byte(user2.HashedPwd)) {
-		fmt.Fprintln(w, "Incorrect")
+		fmt.Fprintln(w, "Incorrect password ", http.StatusUnauthorized)
 	}
 
-	token, err := h.JWT.Generate(int64(user.Id))
+	token, err := h.JWT.Generate(int64(user2.Id))
 	if err != nil {
 		http.Error(w, "cannot generate token", http.StatusInternalServerError)
 		return
@@ -65,9 +67,15 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 	err = h.Stor.AddUser(&user)
-	if err != nil {
+	isExist := h.Stor.UserExists(user.Login)
+	if isExist {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Пользователь уже существует"))
+	}
+	if err != nil && !isExist {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Не удалось добавить пользователя"))
+		log.Println(err)
 	}
 	userJson, _ := json.Marshal(user)
 	w.WriteHeader(http.StatusCreated)
@@ -79,6 +87,7 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 			authHeader := r.Header.Get("Authorization")
+			fmt.Println(authHeader)
 			if authHeader == "" {
 				http.Error(w, "no token", http.StatusUnauthorized)
 				return
@@ -86,7 +95,7 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 
 			const prefix = "Bearer "
 			if len(authHeader) < len(prefix) {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
+				http.Error(w, "NO token", http.StatusUnauthorized)
 				return
 			}
 
@@ -94,7 +103,7 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 
 			claims, err := jwtM.Parse(tokenStr)
 			if err != nil {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
+				http.Error(w, "CANT PARSE", http.StatusUnauthorized)
 				return
 			}
 
@@ -105,10 +114,30 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 }
 
 func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(int64)
+	var (
+		ok     bool
+		userID int64 = 0
+	)
+	userID, ok = r.Context().Value("user_id").(int64)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	usr, err := h.Stor.UserByID(uint(userID))
+	w.Header().Set("Content-Type", "application/json")
 
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": err,
+		})
+	}
 	json.NewEncoder(w).Encode(map[string]any{
-		"user_id": userID,
+		"user_id":    userID,
+		"user_login": usr.Login,
+	})
+	fmt.Printf("Чтото есть %s", map[string]any{
+		"user_id":    userID,
+		"user_login": usr.Login,
 	})
 }
 

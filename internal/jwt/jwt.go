@@ -29,7 +29,9 @@ func (m *Manager) Generate(userID int64) (string, error) {
 }
 
 func (m *Manager) Parse(tokenStr string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, Claims{}, func(token *jwt.Token) (interface{}, error) {
+	claims := &Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		return m.Secret, nil
 	},
 	)

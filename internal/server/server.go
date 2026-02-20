@@ -16,7 +16,7 @@ type Server struct {
 func (srv *Server) RunServer() {
 	srv.Handlers.SetupHandlers()
 	mux := srv.Handlers.Mux
-	http.ListenAndServe(":8080", mux)
+	http.ListenAndServe(":8081", mux)
 }
 
 func NewServer(db *database.Database) *Server {

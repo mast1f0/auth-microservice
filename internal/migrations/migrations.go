@@ -2,15 +2,14 @@ package migrations
 
 import (
 	"database/sql"
-	"os"
 )
 
 func RunMigrations(db *sql.DB, path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec(string(data))
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS users  (
+    id SERIAL PRIMARY KEY,
+    login TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);`)
 	return err
 }

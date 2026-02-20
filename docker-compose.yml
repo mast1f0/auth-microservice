@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: auth-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: strong_password
+      POSTGRES_DB: auth_db
+
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build: .
+    container_name: auth-service
+    restart: always
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: auth_user
+      DB_PASSWORD: strong_password
+      DB_NAME: auth_db
+
+volumes:
+  postgres_data:
