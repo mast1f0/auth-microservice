@@ -4,7 +4,7 @@ import (
 	"database/sql"
 )
 
-func RunMigrations(db *sql.DB, path string) error {
+func RunMigrations(db *sql.DB) error {
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS users  (
     id SERIAL PRIMARY KEY,
     login TEXT UNIQUE NOT NULL,

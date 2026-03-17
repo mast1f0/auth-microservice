@@ -1,9 +1,9 @@
 package database
 
 import (
-	"auth-microservice/internal/crypto"
-	"auth-microservice/internal/migrations"
-	"auth-microservice/internal/models"
+	"auth-microservice/internal/adapters/crypto"
+	"auth-microservice/internal/adapters/storage/migrations"
+	"auth-microservice/internal/core/domain"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -24,13 +24,13 @@ func (db *Database) UserCount() uint {
 	return count
 }
 
-func (db *Database) UserByID(id uint) (*models.User, error) {
-	var usr *models.User
+func (db *Database) UserByID(id uint) (*domain.User, error) {
+	var usr domain.User
 	_ = db.DB.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.CreatedAt)
 	if usr.Id == 0 {
-		return &models.User{}, errors.New("Нет такого пользователя")
+		return &domain.User{}, errors.New("Нет такого пользователя")
 	}
-	return usr, nil
+	return &usr, nil
 }
 
 func (db *Database) UserExists(login string) bool {
@@ -39,7 +39,7 @@ func (db *Database) UserExists(login string) bool {
 		log.Println("не удалось сделать выборку")
 	}
 
-	var usr models.User
+	var usr domain.User
 
 	for query.Next() {
 		if query.Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.CreatedAt); usr.Login == login {
@@ -49,7 +49,7 @@ func (db *Database) UserExists(login string) bool {
 	return false
 }
 
-func (db *Database) AddUser(user *models.User) error {
+func (db *Database) AddUser(user *domain.User) error {
 	HashedPwd := crypto.HashPassword(user.HashedPwd)
 	_, err := db.DB.Exec(`INSERT INTO users (login, password_hash, created_at) VALUES ($1, $2, $3)`, user.Login, HashedPwd, time.Now())
 	if err != nil || db.UserExists(user.Login) {
@@ -59,18 +59,18 @@ func (db *Database) AddUser(user *models.User) error {
 	return nil
 }
 
-func (db *Database) UserByLogin(login string) (*models.User, error) {
+func (db *Database) UserByLogin(login string) (*domain.User, error) {
 	rows, err := db.DB.Query(`SELECT * FROM users`)
 	if err != nil {
 		log.Println(err)
 	}
-	var usr models.User
+	var usr domain.User
 	for rows.Next() {
 		if err = rows.Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.CreatedAt); usr.Login == login {
 			return &usr, nil
 		}
 	}
-	return &models.User{}, errors.New("Пользователь не найден!")
+	return &domain.User{}, errors.New("Пользователь не найден!")
 }
 
 func NewDatabase() (*Database, error) {
@@ -82,12 +82,17 @@ func NewDatabase() (*Database, error) {
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 	)
+	fmt.Println(db_info)
 	db, err := sql.Open("pgx", db_info)
 
 	if err != nil {
 		return &Database{}, err
 	}
-	migrations.RunMigrations(db, "/internal/sql/create.sql")
+	err = migrations.RunMigrations(db)
+	if err != nil {
+		log.Fatal(err)
+		return &Database{}, err
+	}
 	return &Database{
 		DB: db,
 	}, nil
