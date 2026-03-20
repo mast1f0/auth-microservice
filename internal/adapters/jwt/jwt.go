@@ -1,6 +1,7 @@
 package jwtutil
 
 import (
+	"auth-microservice/internal/core/domain"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,13 +12,15 @@ type Manager struct {
 }
 
 type Claims struct {
-	UserID int64 `json:"user_id"`
+	UserID int64       `json:"user_id"`
+	Role   domain.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
-func (m *Manager) Generate(userID int64) (string, error) {
+func (m *Manager) Generate(userID int64, role domain.Role) (string, error) {
 	claims := Claims{
 		UserID: userID,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

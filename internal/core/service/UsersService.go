@@ -26,7 +26,7 @@ func (service *UserService) UserExists(login string) bool {
 	return service.UsersRepository.UserExists(login)
 }
 
-func (service *UserService) AddUser(user *domain.User) error {
+func (service *UserService) AddUser(user *domain.User) (*domain.User, error) {
 	return service.UsersRepository.AddUser(user)
 }
 

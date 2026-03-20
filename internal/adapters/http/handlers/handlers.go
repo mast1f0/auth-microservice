@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
 type Handlers struct {
@@ -25,63 +24,73 @@ func NewHandlers(service *service.UserService, jwt *jwtutil.Manager) *Handlers {
 	}
 }
 
+type CheckUser struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
+
 func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	var user domain.User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	var req CheckUser
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	user2, err := h.Service.UserByLogin(user.Login)
+	user, err := h.Service.UserByLogin(req.Login)
 	if err != nil {
 		fmt.Fprintln(w, err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if !crypto.CheckPwd([]byte(user.HashedPwd), []byte(user2.HashedPwd)) {
+	if !crypto.CheckPwd([]byte(req.Password), user.HashedPwd) {
 		fmt.Fprintln(w, "Incorrect password ", http.StatusUnauthorized)
+		return
 	}
 
-	token, err := h.JWT.Generate(int64(user2.Id))
+	token, err := h.JWT.Generate(user.Id, user.Role)
 	if err != nil {
 		http.Error(w, "cannot generate token", http.StatusInternalServerError)
 		return
 	}
 
-	resp := map[string]string{
-		"access_token": token,
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(map[string]string{
+		"access_token": token,
+	})
+}
+
+type RegisterUser struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
 }
 
 func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
-	var user domain.User
-	user.CreatedAt = time.Now()
-	err := json.NewDecoder(r.Body).Decode(&user)
+	var req RegisterUser
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "Error")
 		log.Println(err)
 		return
 	}
-	err = h.Service.AddUser(&user)
-	isExist := h.Service.UserExists(user.Login)
-	if isExist {
+
+	user, err := h.Service.AddUser(&domain.User{
+		Login:     req.Login,
+		HashedPwd: crypto.HashPassword(req.Password),
+		Role:      domain.RoleBuyer,
+	})
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Пользователь уже существует"))
+		fmt.Fprintf(w, err.Error())
 		return
 	}
-	if err != nil && !isExist {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Не удалось добавить пользователя"))
-		log.Println(err)
-		return
+	resp := map[string]any{
+		"id":    user.Id,
+		"login": user.Login,
+		"role":  user.Role,
 	}
-	userJson, _ := json.Marshal(user)
 	w.WriteHeader(http.StatusCreated)
-	w.Write(userJson)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
@@ -89,7 +98,6 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 			authHeader := r.Header.Get("Authorization")
-			fmt.Println(authHeader)
 			if authHeader == "" {
 				http.Error(w, "no token", http.StatusUnauthorized)
 				return
@@ -110,17 +118,14 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 			}
 
 			ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
+			ctx = context.WithValue(ctx, "role", claims.Role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
 func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
-	var (
-		ok     bool
-		userID int64 = 0
-	)
-	userID, ok = r.Context().Value("user_id").(int64)
+	userID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
@@ -130,16 +135,12 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]any{
-			"error": err,
+			"error": err.Error(),
 		})
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]any{
-		"user_id":    userID,
-		"user_login": usr.Login,
-	})
-	fmt.Printf("Чтото есть %s", map[string]any{
-		"user_id":    userID,
-		"user_login": usr.Login,
+		"user_id": userID,
+		"role":    usr.Role,
 	})
 }

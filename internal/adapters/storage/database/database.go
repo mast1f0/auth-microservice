@@ -1,7 +1,6 @@
 package database
 
 import (
-	"auth-microservice/internal/adapters/crypto"
 	"auth-microservice/internal/adapters/storage/migrations"
 	"auth-microservice/internal/core/domain"
 	"database/sql"
@@ -26,7 +25,7 @@ func (db *Database) UserCount() uint {
 
 func (db *Database) UserByID(id uint) (*domain.User, error) {
 	var usr domain.User
-	_ = db.DB.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.CreatedAt)
+	_ = db.DB.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&usr.Id, &usr.Role, &usr.Login, &usr.HashedPwd, &usr.CreatedAt)
 	if usr.Id == 0 {
 		return &domain.User{}, errors.New("Нет такого пользователя")
 	}
@@ -49,28 +48,39 @@ func (db *Database) UserExists(login string) bool {
 	return false
 }
 
-func (db *Database) AddUser(user *domain.User) error {
-	HashedPwd := crypto.HashPassword(user.HashedPwd)
-	_, err := db.DB.Exec(`INSERT INTO users (login, password_hash, created_at) VALUES ($1, $2, $3)`, user.Login, HashedPwd, time.Now())
-	if err != nil || db.UserExists(user.Login) {
+func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
+	var id int64
+	err := db.DB.QueryRow(
+		`INSERT INTO users (login, password_hash, role, created_at) 
+		 VALUES ($1, $2, $3, $4) RETURNING id`,
+		user.Login,
+		user.HashedPwd,
+		user.Role,
+		time.Now(),
+	).Scan(&id)
+
+	if err != nil {
 		log.Println("Не удалось добавить пользователя")
-		return err
+		return nil, err
 	}
-	return nil
+	return &domain.User{Id: id, Login: user.Login, Role: user.Role}, nil
 }
 
 func (db *Database) UserByLogin(login string) (*domain.User, error) {
-	rows, err := db.DB.Query(`SELECT * FROM users`)
-	if err != nil {
-		log.Println(err)
-	}
 	var usr domain.User
-	for rows.Next() {
-		if err = rows.Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.CreatedAt); usr.Login == login {
-			return &usr, nil
+	err := db.DB.QueryRow(
+		`SELECT id, login, password_hash, role, created_at FROM users WHERE login = $1`,
+		login,
+	).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.Role, &usr.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("Пользователь не найден")
 		}
+		return nil, err
 	}
-	return &domain.User{}, errors.New("Пользователь не найден!")
+
+	return &usr, nil
 }
 
 func NewDatabase() (*Database, error) {
