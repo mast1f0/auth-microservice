@@ -38,8 +38,8 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.Service.UserByLogin(req.Login)
 	if err != nil {
-		fmt.Fprintln(w, err)
 		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
 		return
 	}
 	if !crypto.CheckPwd([]byte(req.Password), user.HashedPwd) {
@@ -74,6 +74,17 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Login) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "логин должен быть минимум 3 символа")
+		return
+	}
+
+	if len(req.Password) < 8 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Длина пароля должна быть хотя бы 8 символов")
+		return
+	}
 	user, err := h.Service.AddUser(&domain.User{
 		Login:     req.Login,
 		HashedPwd: crypto.HashPassword(req.Password),
