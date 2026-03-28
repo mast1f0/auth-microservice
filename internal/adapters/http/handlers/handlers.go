@@ -155,3 +155,17 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		"role":    usr.Role,
 	})
 }
+
+func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("user_id").(int64)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	err := h.Service.DeleteUser(uint(userID))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, err)
+		return
+	}
+}

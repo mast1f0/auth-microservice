@@ -21,6 +21,7 @@ func NewRouter(h *handlers.Handlers) *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Use(handlers.AuthMiddleware(h.JWT))
 		r.Get("/profile", h.HandleProfile)
+		r.Delete("/delete", h.DeleteUser)
 	})
 	return r
 }

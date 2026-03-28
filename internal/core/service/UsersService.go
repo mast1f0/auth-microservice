@@ -15,15 +15,8 @@ func NewService(usersRepository ports.UsersRepository) *UserService {
 	}
 }
 
-func (service *UserService) UserCount() uint {
-	return service.UsersRepository.UserCount()
-}
 func (service *UserService) UserByID(id uint) (*domain.User, error) {
 	return service.UsersRepository.UserByID(id)
-}
-
-func (service *UserService) UserExists(login string) bool {
-	return service.UsersRepository.UserExists(login)
 }
 
 func (service *UserService) AddUser(user *domain.User) (*domain.User, error) {
@@ -32,4 +25,8 @@ func (service *UserService) AddUser(user *domain.User) (*domain.User, error) {
 
 func (service *UserService) UserByLogin(login string) (*domain.User, error) {
 	return service.UsersRepository.UserByLogin(login)
+}
+
+func (service *UserService) DeleteUser(id uint) error {
+	return service.UsersRepository.DeleteUser(id)
 }

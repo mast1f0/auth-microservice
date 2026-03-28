@@ -5,9 +5,8 @@ import (
 )
 
 type UsersRepository interface {
-	UserCount() uint
 	UserByID(id uint) (*domain.User, error)
-	UserExists(login string) bool
 	AddUser(user *domain.User) (*domain.User, error)
 	UserByLogin(login string) (*domain.User, error)
+	DeleteUser(id uint) error
 }

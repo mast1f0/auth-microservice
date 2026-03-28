@@ -5,7 +5,6 @@ import (
 )
 
 func RunMigrations(db *sql.DB) error {
-	db.Exec(`DROP TABLE IF EXISTS users;`)
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS users  (
     id SERIAL PRIMARY KEY,
     role VARCHAR(20) NOT NULL,

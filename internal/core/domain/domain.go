@@ -6,7 +6,7 @@ type Role string
 
 const (
 	RoleAdmin  Role = "admin"
-	RoleSeller Role = "user"
+	RoleSeller Role = "seller"
 	RoleBuyer  Role = "buyer"
 )
 

@@ -6,6 +6,8 @@ import (
 	jwtutil "auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/adapters/storage/database"
 	"auth-microservice/internal/core/service"
+	seed2 "auth-microservice/internal/seed"
+	"flag"
 	"log"
 
 	"github.com/joho/godotenv"
@@ -18,11 +20,17 @@ func init() {
 	}
 }
 func main() {
+
 	db, err := database.NewDatabase()
 	if err != nil {
 		log.Println("Не удалось подключиться к бд")
 	}
 
+	seed := flag.Bool("seed", false, "Seed the database")
+	flag.Parse()
+	if *seed {
+		seed2.RunSeed()
+	}
 	manager := jwtutil.Manager{
 		Secret: []byte("superSecret"),
 	}

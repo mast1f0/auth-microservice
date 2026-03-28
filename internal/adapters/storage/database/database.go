@@ -17,12 +17,6 @@ type Database struct {
 	DB *sql.DB
 }
 
-func (db *Database) UserCount() uint {
-	var count uint = 0
-	_ = db.DB.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count)
-	return count
-}
-
 func (db *Database) UserByID(id uint) (*domain.User, error) {
 	var usr domain.User
 	_ = db.DB.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&usr.Id, &usr.Role, &usr.Login, &usr.HashedPwd, &usr.CreatedAt)
@@ -81,6 +75,14 @@ func (db *Database) UserByLogin(login string) (*domain.User, error) {
 	}
 
 	return &usr, nil
+}
+
+func (db *Database) DeleteUser(id uint) error {
+	_, err := db.DB.Exec("DELETE FROM users WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewDatabase() (*Database, error) {
