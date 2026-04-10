@@ -1,7 +1,6 @@
 package database
 
 import (
-	"auth-microservice/internal/adapters/storage/migrations"
 	"auth-microservice/internal/core/domain"
 	"database/sql"
 	"errors"
@@ -19,34 +18,42 @@ type Database struct {
 
 func (db *Database) UserByID(id uint) (*domain.User, error) {
 	var usr domain.User
-	_ = db.DB.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&usr.Id, &usr.Role, &usr.Login, &usr.HashedPwd, &usr.CreatedAt)
-	if usr.Id == 0 {
-		return &domain.User{}, errors.New("Нет такого пользователя")
+	err := db.DB.QueryRow(
+		`SELECT u.id, u.login, u.password_hash, r.name, u.created_at
+		 FROM users u
+		 JOIN roles r ON r.id = u.role_id
+		 WHERE u.id = $1`,
+		id,
+	).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.Role, &usr.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return &domain.User{}, errors.New("Нет такого пользователя")
+		}
+		return nil, err
 	}
 	return &usr, nil
 }
 
 func (db *Database) UserExists(login string) bool {
-	query, err := db.DB.Query(`SELECT * FROM users`)
+	var exists bool
+	err := db.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)`, login).Scan(&exists)
 	if err != nil {
-		log.Println("не удалось сделать выборку")
+		log.Println("не удалось проверить пользователя")
+		return false
 	}
-
-	var usr domain.User
-
-	for query.Next() {
-		if query.Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.CreatedAt); usr.Login == login {
-			return true
-		}
-	}
-	return false
+	return exists
 }
 
 func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
 	var id int64
 	err := db.DB.QueryRow(
-		`INSERT INTO users (login, password_hash, role, created_at) 
-		 VALUES ($1, $2, $3, $4) RETURNING id`,
+		`INSERT INTO users (login, password_hash, role_id, created_at)
+		 VALUES (
+			$1,
+			$2,
+			(SELECT id FROM roles WHERE name = $3),
+			$4
+		 ) RETURNING id`,
 		user.Login,
 		user.HashedPwd,
 		user.Role,
@@ -63,7 +70,10 @@ func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
 func (db *Database) UserByLogin(login string) (*domain.User, error) {
 	var usr domain.User
 	err := db.DB.QueryRow(
-		`SELECT id, login, password_hash, role, created_at FROM users WHERE login = $1`,
+		`SELECT u.id, u.login, u.password_hash, r.name, u.created_at
+		 FROM users u
+		 JOIN roles r ON r.id = u.role_id
+		 WHERE u.login = $1`,
 		login,
 	).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.Role, &usr.CreatedAt)
 
@@ -94,15 +104,9 @@ func NewDatabase() (*Database, error) {
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 	)
-	fmt.Println(db_info)
 	db, err := sql.Open("pgx", db_info)
 
 	if err != nil {
-		return &Database{}, err
-	}
-	err = migrations.RunMigrations(db)
-	if err != nil {
-		log.Fatal(err)
 		return &Database{}, err
 	}
 	return &Database{

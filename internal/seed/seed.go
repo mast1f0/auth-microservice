@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func RunSeed() {
@@ -33,9 +35,25 @@ func RunSeed() {
 		{Login: "seller", Role: domain.RoleSeller, HashedPwd: crypto.HashPassword("seller123")},
 	}
 	for _, user := range users {
-		_, err := db.Exec("INSERT INTO users (login, role, password_hash, created_at) VALUES ($1, $2, $3, $4)  ON CONFLICT (login) DO NOTHING", user.Login, user.Role, user.HashedPwd, time.Now())
+		result, err := db.Exec(
+			`INSERT INTO users (login, role_id, password_hash, created_at)
+			 SELECT $1, r.id, $2, $3
+			 FROM roles r
+			 WHERE r.name = $4
+			 ON CONFLICT (login) DO NOTHING`,
+			user.Login,
+			user.HashedPwd,
+			time.Now(),
+			user.Role,
+		)
 		if err != nil {
 			log.Println("error inserting user", err)
+			continue
+		}
+
+		affected, err := result.RowsAffected()
+		if err == nil && affected == 0 {
+			log.Printf("user %s was skipped: login already exists or role is missing", user.Login)
 		}
 	}
 }

@@ -16,20 +16,22 @@ import (
 func init() {
 	err := godotenv.Load()
 	if err != nil {
-		panic("Error loading .env file")
+		log.Println(".env file not found, using environment variables")
 	}
 }
 func main() {
+	seed := flag.Bool("seed", false, "Seed the database")
+	flag.Parse()
+
+	if *seed {
+		seed2.RunSeed()
+		return
+	}
 
 	db, err := database.NewDatabase()
 	if err != nil {
-		log.Println("Не удалось подключиться к бд")
-	}
-
-	seed := flag.Bool("seed", false, "Seed the database")
-	flag.Parse()
-	if *seed {
-		seed2.RunSeed()
+		log.Println("Не удалось подключиться к бд:", err)
+		return
 	}
 	manager := jwtutil.Manager{
 		Secret: []byte("superSecret"),
