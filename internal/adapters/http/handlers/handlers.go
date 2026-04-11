@@ -2,13 +2,12 @@ package handlers
 
 import (
 	"auth-microservice/internal/adapters/crypto"
+	"auth-microservice/internal/adapters/http/handlers/helpers"
 	"auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/core/domain"
 	"auth-microservice/internal/core/service"
 	"context"
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 )
 
@@ -33,30 +32,26 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var req CheckUser
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		log.Println(err)
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	user, err := h.Service.UserByLogin(req.Login)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, err)
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if !crypto.CheckPwd([]byte(req.Password), user.HashedPwd) {
-		fmt.Fprintln(w, "Incorrect password ", http.StatusUnauthorized)
+		helpers.RespondWithError(w, http.StatusUnauthorized, "incorrect password")
 		return
 	}
 
 	token, err := h.JWT.Generate(user.Id, user.Role)
 	if err != nil {
-		http.Error(w, "cannot generate token", http.StatusInternalServerError)
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"access_token": token,
-	})
+	helpers.RespondWithJSON(w, http.StatusOK, map[string]string{"access_token": token})
 }
 
 type RegisterUser struct {
@@ -68,21 +63,17 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var req RegisterUser
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Error")
-		log.Println(err)
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if len(req.Login) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "логин должен быть минимум 3 символа")
+		helpers.RespondWithError(w, http.StatusBadRequest, "login must be at least symbols")
 		return
 	}
 
 	if len(req.Password) < 8 {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "Длина пароля должна быть хотя бы 8 символов")
+		helpers.RespondWithError(w, http.StatusBadRequest, "password must be at least 8 characters")
 		return
 	}
 	user, err := h.Service.AddUser(&domain.User{
@@ -91,17 +82,14 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		Role:      domain.RoleBuyer,
 	})
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, err.Error())
+		helpers.RespondWithJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	resp := map[string]any{
-		"id":    user.Id,
-		"login": user.Login,
-		"role":  user.Role,
-	}
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	helpers.RespondWithJSON(w, http.StatusOK, map[string]any{
+		"id":         user.Id,
+		"login":      user.Login,
+		"created_at": user.CreatedAt,
+	})
 }
 
 func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
@@ -138,20 +126,16 @@ func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
 func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
 		return
 	}
 	usr, err := h.Service.UserByID(uint(userID))
-	w.Header().Set("Content-Type", "application/json")
-
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]any{
-			"error": err.Error(),
-		})
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]any{
-		"user_id": userID,
+	helpers.RespondWithJSON(w, http.StatusOK, map[string]any{
+		"user_id": usr.Id,
 		"role":    usr.Role,
 	})
 }
@@ -159,13 +143,13 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
 		return
 	}
 	err := h.Service.DeleteUser(uint(userID))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, err)
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	helpers.RespondWithJSON(w, http.StatusNoContent, nil)
 }
