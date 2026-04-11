@@ -1,7 +1,7 @@
 package main
 
 import (
-	"auth-microservice/internal/adapters/http"
+	server "auth-microservice/internal/adapters/http"
 	"auth-microservice/internal/adapters/http/handlers"
 	jwtutil "auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/adapters/storage/database"
@@ -9,6 +9,8 @@ import (
 	seed2 "auth-microservice/internal/seed"
 	"flag"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/joho/godotenv"
 )
@@ -38,8 +40,9 @@ func main() {
 	}
 	userService := service.NewService(db)
 	handler := handlers.NewHandlers(userService, &manager)
-	router := http.NewRouter(handler)
-	srv := http.NewServer(router)
+	router := server.NewRouter(handler)
+	go func() { log.Println(http.ListenAndServe("localhost:6060", nil)) }()
+	srv := server.NewServer(router)
 	if err := srv.Run(); err != nil {
 		log.Println(err)
 	}

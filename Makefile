@@ -1,4 +1,4 @@
-.PHONY: run-dev run-seed migrate-up migrate-down
+.PHONY: run-dev run-seed migrate-up migrate-down pprof
 
 DB_URL ?= postgres://auth_user:strong_password@localhost:5432/auth_db?sslmode=disable
 
@@ -13,3 +13,6 @@ migrate-up:
 
 migrate-down:
 	migrate -path migrations -database "$(DB_URL)" down 1
+
+pprof:
+	go tool pprof -http=:6061 http://localhost:6060/debug/pprof/profile
