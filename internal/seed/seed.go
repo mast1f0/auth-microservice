@@ -29,10 +29,11 @@ func RunSeed() {
 	}
 	defer db.Close()
 
+	bcryptHasher := crypto.NewBcryptHasher()
 	users := []domain.User{
-		{Login: "admin", Role: domain.RoleAdmin, HashedPwd: crypto.HashPassword("admin123")},
-		{Login: "buyer", Role: domain.RoleBuyer, HashedPwd: crypto.HashPassword("buyer123")},
-		{Login: "seller", Role: domain.RoleSeller, HashedPwd: crypto.HashPassword("seller123")},
+		{Login: "admin", Role: domain.RoleAdmin, HashedPwd: bcryptHasher.HashPassword("admin123")},
+		{Login: "buyer", Role: domain.RoleBuyer, HashedPwd: bcryptHasher.HashPassword("buyer123")},
+		{Login: "seller", Role: domain.RoleSeller, HashedPwd: bcryptHasher.HashPassword("seller123")},
 	}
 	for _, user := range users {
 		result, err := db.Exec(

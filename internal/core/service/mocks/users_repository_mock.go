@@ -10,7 +10,7 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) UserByID(id uint) (*domain.User, error) {
+func (m *MockUserRepository) UserByID(id int64) (*domain.User, error) {
 	args := m.Called(id)
 
 	if args.Get(0) == nil {
@@ -28,7 +28,7 @@ func (m *MockUserRepository) UserByLogin(login string) (*domain.User, error) {
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *MockUserRepository) DeleteUser(id uint) error {
+func (m *MockUserRepository) DeleteUser(id int64) error {
 	args := m.Called(id)
 	return args.Error(0)
 }

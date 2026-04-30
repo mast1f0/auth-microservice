@@ -6,16 +6,22 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func CheckPwd(pwd []byte, hashedPwd []byte) bool {
-	err := bcrypt.CompareHashAndPassword(hashedPwd, []byte(pwd))
+type BcryptHasher struct{}
+
+func (*BcryptHasher) CheckPassword(pwd []byte, hashedPwd []byte) bool {
+	err := bcrypt.CompareHashAndPassword(hashedPwd, pwd)
 	return err == nil
 }
 
-func HashPassword(pwd string) []byte {
-	pswrd := []byte(pwd)
-	bytes, err := bcrypt.GenerateFromPassword(pswrd, 10)
+func (*BcryptHasher) HashPassword(pwd string) []byte {
+	password := []byte(pwd)
+	bytes, err := bcrypt.GenerateFromPassword(password, 10)
 	if err != nil {
 		log.Printf("Error hash password: %e", err)
 	}
 	return bytes
+}
+
+func NewBcryptHasher() *BcryptHasher {
+	return &BcryptHasher{}
 }

@@ -9,14 +9,14 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // Import the stdlib adapter
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Database struct {
 	DB *sql.DB
 }
 
-func (db *Database) UserByID(id uint) (*domain.User, error) {
+func (db *Database) UserByID(id int64) (*domain.User, error) {
 	var usr domain.User
 	err := db.DB.QueryRow(
 		`SELECT u.id, u.login, u.password_hash, r.name, u.created_at
@@ -26,8 +26,8 @@ func (db *Database) UserByID(id uint) (*domain.User, error) {
 		id,
 	).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.Role, &usr.CreatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return &domain.User{}, errors.New("Нет такого пользователя")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -38,14 +38,18 @@ func (db *Database) UserExists(login string) bool {
 	var exists bool
 	err := db.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)`, login).Scan(&exists)
 	if err != nil {
-		log.Println("не удалось проверить пользователя")
+		log.Println("failed to check user existence")
 		return false
 	}
 	return exists
 }
 
 func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
-	var id int64
+	var (
+		id        int64
+		createdAt = time.Now()
+	)
+
 	err := db.DB.QueryRow(
 		`INSERT INTO users (login, password_hash, role_id, created_at)
 		 VALUES (
@@ -57,14 +61,14 @@ func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
 		user.Login,
 		user.HashedPwd,
 		user.Role,
-		time.Now(),
+		createdAt,
 	).Scan(&id)
 
 	if err != nil {
-		log.Println("Не удалось добавить пользователя")
+		log.Println("failed to add user")
 		return nil, err
 	}
-	return &domain.User{Id: id, Login: user.Login, Role: user.Role}, nil
+	return &domain.User{Id: id, Login: user.Login, Role: user.Role, CreatedAt: createdAt}, nil
 }
 
 func (db *Database) UserByLogin(login string) (*domain.User, error) {
@@ -78,8 +82,8 @@ func (db *Database) UserByLogin(login string) (*domain.User, error) {
 	).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.Role, &usr.CreatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errors.New("Пользователь не найден")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -87,7 +91,7 @@ func (db *Database) UserByLogin(login string) (*domain.User, error) {
 	return &usr, nil
 }
 
-func (db *Database) DeleteUser(id uint) error {
+func (db *Database) DeleteUser(id int64) error {
 	_, err := db.DB.Exec("DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return err
@@ -96,7 +100,7 @@ func (db *Database) DeleteUser(id uint) error {
 }
 
 func NewDatabase() (*Database, error) {
-	db_info := fmt.Sprintf(
+	dbInfo := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
@@ -104,7 +108,7 @@ func NewDatabase() (*Database, error) {
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 	)
-	db, err := sql.Open("pgx", db_info)
+	db, err := sql.Open("pgx", dbInfo)
 
 	if err != nil {
 		return &Database{}, err

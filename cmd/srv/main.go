@@ -1,12 +1,15 @@
 package main
 
 import (
+	"auth-microservice/internal/adapters/crypto"
 	server "auth-microservice/internal/adapters/http"
 	"auth-microservice/internal/adapters/http/handlers"
 	jwtutil "auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/adapters/storage/database"
 	"auth-microservice/internal/core/service"
 	seed2 "auth-microservice/internal/seed"
+	"os"
+
 	"flag"
 	"log"
 	"net/http"
@@ -36,9 +39,10 @@ func main() {
 		return
 	}
 	manager := jwtutil.Manager{
-		Secret: []byte("superSecret"),
+		Secret: []byte(os.Getenv("JWT_SECRET")),
 	}
-	userService := service.NewService(db)
+	bcryptHasher := crypto.NewBcryptHasher()
+	userService := service.NewService(db, bcryptHasher)
 	handler := handlers.NewHandlers(userService, &manager)
 	router := server.NewRouter(handler)
 	go func() { log.Println(http.ListenAndServe("localhost:6060", nil)) }()
