@@ -39,7 +39,7 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.Service.UserByLogin(req.Login, req.Password)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidCredentials) || errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, service.ErrInvalidCredentials) || errors.Is(err, service.ErrUserNotFound) {
 			helpers.RespondWithError(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
@@ -66,7 +66,7 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.Service.AddUser(req.Login, req.Password, defaultRole)
 	if err != nil {
-		if errors.Is(err, domain.ErrLoginTooShort) || errors.Is(err, domain.ErrPasswordTooShort) {
+		if errors.Is(err, service.ErrLoginTooShort) || errors.Is(err, service.ErrPasswordTooShort) {
 			helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -119,7 +119,7 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	usr, err := h.Service.UserByID(userID)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, service.ErrUserNotFound) {
 			helpers.RespondWithError(w, http.StatusNotFound, err.Error())
 			return
 		}

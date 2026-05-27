@@ -1,6 +1,6 @@
 .PHONY: run-dev run-seed migrate-up migrate-down pprof test
 
-DB_URL ?= postgres://auth_user:strong_password@localhost:5432/auth_db?sslmode=disable
+DB_URL ?= postgres://postgres:postgres123@localhost:5432/auth_db?sslmode=disable
 
 run-dev:
 	go run cmd/srv/main.go

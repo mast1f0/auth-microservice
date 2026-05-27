@@ -2,6 +2,7 @@ package database
 
 import (
 	"auth-microservice/internal/core/domain"
+	"auth-microservice/internal/core/ports"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -27,7 +28,7 @@ func (db *Database) UserByID(id int64) (*domain.User, error) {
 	).Scan(&usr.Id, &usr.Login, &usr.HashedPwd, &usr.Role, &usr.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+			return nil, ports.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func (db *Database) UserByLogin(login string) (*domain.User, error) {
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, domain.ErrUserNotFound
+			return nil, ports.ErrUserNotFound
 		}
 		return nil, err
 	}
@@ -97,6 +98,26 @@ func (db *Database) DeleteUser(id int64) error {
 		return err
 	}
 	return nil
+}
+
+func (db *Database) GetAllUsers() ([]*domain.User, error) {
+	var users []*domain.User
+	rows, err := db.DB.Query("SELECT id, login, role_id, created_at FROM users")
+	if err != nil {
+		return nil, ports.ErrFailedToLoad
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var usr domain.User
+		if err := rows.Scan(&usr.Id); err != nil {
+			return nil, ports.ErrFailedToLoad
+		}
+		users = append(users, &usr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, ports.ErrFailedToLoad
+	}
+	return users, nil
 }
 
 func NewDatabase() (*Database, error) {

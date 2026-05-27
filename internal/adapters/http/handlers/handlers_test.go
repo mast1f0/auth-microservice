@@ -7,7 +7,7 @@ import (
 	"auth-microservice/internal/adapters/http/handlers/dto"
 	jwtutil "auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/core/domain"
-	service2 "auth-microservice/internal/core/service"
+	"auth-microservice/internal/core/service"
 	"auth-microservice/internal/core/service/mocks"
 	"bytes"
 	"context"
@@ -22,7 +22,7 @@ import (
 )
 
 func newTestHandler(mockRepo *mocks.MockUserRepository) *handlers.Handlers {
-	mockService := service2.NewService(mockRepo, crypto.NewBcryptHasher())
+	mockService := service.NewService(mockRepo, crypto.NewBcryptHasher())
 	jwtManager := &jwtutil.Manager{Secret: []byte("secret")}
 	return handlers.NewHandlers(mockService, jwtManager)
 }
@@ -104,7 +104,7 @@ func TestHandleLogin_InvalidCredentials(t *testing.T) {
 	mockRepo := new(mocks.MockUserRepository)
 	h := newTestHandler(mockRepo)
 
-	mockRepo.On("UserByLogin", "login").Return(nil, domain.ErrUserNotFound).Once()
+	mockRepo.On("UserByLogin", "login").Return(nil, service.ErrUserNotFound).Once()
 
 	body, _ := json.Marshal(dto.LoginReq{Login: "login", Password: "password123"})
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(body))
@@ -137,7 +137,7 @@ func TestHandleProfile_UserNotFound(t *testing.T) {
 	h := newTestHandler(mockRepo)
 	userID := int64(7)
 
-	mockRepo.On("UserByID", userID).Return(nil, domain.ErrUserNotFound).Once()
+	mockRepo.On("UserByID", userID).Return(nil, service.ErrUserNotFound).Once()
 
 	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
 	req = req.WithContext(context.WithValue(req.Context(), "user_id", userID))

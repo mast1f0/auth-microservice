@@ -23,11 +23,11 @@ func (service *UserService) UserByID(id int64) (*domain.User, error) {
 
 func (service *UserService) AddUser(login string, password string, role domain.Role) (*domain.User, error) {
 	if len(login) < 3 {
-		return nil, domain.ErrLoginTooShort
+		return nil, ErrLoginTooShort
 	}
 
 	if len(password) < 8 {
-		return nil, domain.ErrPasswordTooShort
+		return nil, ErrPasswordTooShort
 	}
 
 	return service.UsersRepository.AddUser(&domain.User{
@@ -40,12 +40,12 @@ func (service *UserService) AddUser(login string, password string, role domain.R
 func (service *UserService) UserByLogin(login string, password string) (*domain.User, error) {
 	usr, err := service.UsersRepository.UserByLogin(login)
 	if err != nil {
-		return nil, err
+		return nil, ErrInvalidCredentials
 	}
 	if service.PasswordChecker.CheckPassword([]byte(password), usr.HashedPwd) {
 		return usr, nil
 	}
-	return nil, domain.ErrInvalidCredentials
+	return nil, ErrInvalidCredentials
 }
 
 func (service *UserService) DeleteUser(id int64) error {
