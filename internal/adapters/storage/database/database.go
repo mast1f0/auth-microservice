@@ -120,6 +120,15 @@ func (db *Database) GetAllUsers() ([]*domain.User, error) {
 	return users, nil
 }
 
+func (db *Database) UpdateUser(userId int64, newRole domain.Role) error {
+	query := "UPDATE users SET role = $1, updated_at = now() WHERE id = $2"
+	_, err := db.DB.Exec(query, newRole, userId)
+	if err != nil {
+		return ports.ErrFailedToUpdate
+	}
+	return nil
+}
+
 func NewDatabase() (*Database, error) {
 	dbInfo := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",

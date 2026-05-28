@@ -6,7 +6,6 @@ import (
 	jwtutil "auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/core/domain"
 	"auth-microservice/internal/core/service"
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -81,36 +80,6 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func AuthMiddleware(jwtM *jwtutil.Manager) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, "no token", http.StatusUnauthorized)
-				return
-			}
-
-			const prefix = "Bearer "
-			if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
-				http.Error(w, "no token", http.StatusUnauthorized)
-				return
-			}
-
-			tokenStr := authHeader[len(prefix):]
-
-			claims, err := jwtM.Parse(tokenStr)
-			if err != nil {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-			ctx = context.WithValue(ctx, "role", claims.Role)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
 func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
@@ -138,10 +107,74 @@ func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
 		return
 	}
-	err := h.Service.DeleteUser(userID)
+	userRole, ok := r.Context().Value("role").(domain.Role)
+	if !ok {
+		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ROLE")
+		return
+	}
+
+	var req dto.DeleteUserRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err = req.Validate(); err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if userRole != domain.RoleAdmin && userID != req.UserID {
+		helpers.RespondWithError(w, http.StatusForbidden, "Permission denied")
+		return
+	}
+	err = h.Service.DeleteUser(req.UserID)
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handlers) GetAllUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.Service.AllUsers()
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	helpers.RespondWithJSON(w, http.StatusOK, users)
+}
+
+func (h *Handlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("user_id").(int64)
+	if !ok {
+		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
+		return
+	}
+	userRole, ok := r.Context().Value("role").(domain.Role)
+	if !ok {
+		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ROLE")
+		return
+	}
+	if userRole != domain.RoleAdmin {
+		helpers.RespondWithError(w, http.StatusForbidden, "Permission denied")
+		return
+	}
+
+	var req dto.UpdateUserDTO
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := req.Valid(); err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	err = h.Service.UpdateUser(userID, domain.Role(req.Role))
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	helpers.RespondWithJSON(w, http.StatusOK, "updated")
+
 }

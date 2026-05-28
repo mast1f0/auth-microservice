@@ -41,3 +41,6 @@ func (m *MockUserRepository) AddUser(user *domain.User) (*domain.User, error) {
 	}
 	return args.Get(0).(*domain.User), args.Error(1)
 }
+
+func (m *MockUserRepository) GetAllUsers() ([]*domain.User, error)               { return nil, nil }
+func (m *MockUserRepository) UpdateUser(userId int64, newRole domain.Role) error { return nil }

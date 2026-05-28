@@ -9,4 +9,6 @@ type UsersRepository interface {
 	AddUser(user *domain.User) (*domain.User, error)
 	UserByLogin(login string) (*domain.User, error)
 	DeleteUser(id int64) error
+	GetAllUsers() ([]*domain.User, error)
+	UpdateUser(userId int64, newRole domain.Role) error
 }

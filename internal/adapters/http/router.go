@@ -2,6 +2,7 @@ package http
 
 import (
 	"auth-microservice/internal/adapters/http/handlers"
+	"auth-microservice/internal/adapters/http/middleware"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -19,9 +20,11 @@ func NewRouter(h *handlers.Handlers) *chi.Mux {
 	r.Post("/register", h.HandleRegister)
 
 	r.Group(func(r chi.Router) {
-		r.Use(handlers.AuthMiddleware(h.JWT))
+		r.Use(middleware.AuthMiddleware(h.JWT))
 		r.Get("/profile", h.HandleProfile)
 		r.Delete("/delete", h.DeleteUser)
+		r.Get("/users", h.GetAllUsers)
+		r.Put("/users", h.UpdateUser)
 	})
 	return r
 }

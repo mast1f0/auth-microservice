@@ -8,4 +8,6 @@ var (
 	ErrPasswordTooShort   = errors.New("password must be at least 8 characters long")
 	ErrFailedToLoad       = errors.New("failed to load")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrInternalServer     = errors.New("internal server error")
+	ErrInvalidId          = errors.New("invalid user id")
 )
