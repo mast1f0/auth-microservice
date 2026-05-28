@@ -5,6 +5,7 @@ import (
 	httpadapter "auth-microservice/internal/adapters/http"
 	"auth-microservice/internal/adapters/http/handlers"
 	"auth-microservice/internal/adapters/http/handlers/dto"
+	middleware2 "auth-microservice/internal/adapters/http/middleware"
 	jwtutil "auth-microservice/internal/adapters/jwt"
 	"auth-microservice/internal/core/domain"
 	"auth-microservice/internal/core/service"
@@ -179,7 +180,7 @@ func TestAuthMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	middleware := handlers.AuthMiddleware(jwtManager)
+	middleware := middleware2.AuthMiddleware(jwtManager)
 	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	rr := httptest.NewRecorder()

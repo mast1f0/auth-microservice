@@ -101,27 +101,42 @@ func (db *Database) DeleteUser(id int64) error {
 }
 
 func (db *Database) GetAllUsers() ([]*domain.User, error) {
-	var users []*domain.User
-	rows, err := db.DB.Query("SELECT id, login, role_id, created_at FROM users")
+	users := make([]*domain.User, 0)
+	query := `
+        SELECT u.id, u.login, r.name, u.created_at
+        FROM users u
+        JOIN roles r ON u.role_id = r.id
+        ORDER BY u.id
+    `
+	rows, err := db.DB.Query(query)
 	if err != nil {
+		log.Println(err)
 		return nil, ports.ErrFailedToLoad
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var usr domain.User
-		if err := rows.Scan(&usr.Id); err != nil {
+		var role string
+		if err := rows.Scan(&usr.Id, &usr.Login, &role, &usr.CreatedAt); err != nil {
+			log.Println(err)
 			return nil, ports.ErrFailedToLoad
 		}
+		usr.Role = domain.Role(role)
 		users = append(users, &usr)
 	}
 	if err := rows.Err(); err != nil {
+		log.Println(err)
 		return nil, ports.ErrFailedToLoad
 	}
 	return users, nil
 }
 
 func (db *Database) UpdateUser(userId int64, newRole domain.Role) error {
-	query := "UPDATE users SET role = $1, updated_at = now() WHERE id = $2"
+	query := `
+        UPDATE users 
+        SET role_id = (SELECT id FROM roles WHERE name = $1)
+        WHERE id = $2
+    `
 	_, err := db.DB.Exec(query, newRole, userId)
 	if err != nil {
 		return ports.ErrFailedToUpdate

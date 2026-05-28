@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 const defaultRole = domain.RoleBuyer
@@ -102,9 +105,16 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value("user_id").(int64)
+	idStr := chi.URLParam(r, "id")
+	userID, err := strconv.ParseInt(idStr, 10, 64)
+	currentID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
 		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
+		return
+	}
+
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
 	userRole, ok := r.Context().Value("role").(domain.Role)
@@ -113,21 +123,11 @@ func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req dto.DeleteUserRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err = req.Validate(); err != nil {
-		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if userRole != domain.RoleAdmin && userID != req.UserID {
+	if userRole != domain.RoleAdmin && userID != currentID {
 		helpers.RespondWithError(w, http.StatusForbidden, "Permission denied")
 		return
 	}
-	err = h.Service.DeleteUser(req.UserID)
+	err = h.Service.DeleteUser(userID)
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -145,9 +145,10 @@ func (h *Handlers) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value("user_id").(int64)
-	if !ok {
-		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
+	idStr := chi.URLParam(r, "id")
+	userID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		helpers.RespondWithError(w, http.StatusBadRequest, "Invalid user ID")
 		return
 	}
 	userRole, ok := r.Context().Value("role").(domain.Role)
@@ -161,7 +162,7 @@ func (h *Handlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateUserDTO
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return

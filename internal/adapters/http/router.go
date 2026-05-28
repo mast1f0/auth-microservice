@@ -22,9 +22,9 @@ func NewRouter(h *handlers.Handlers) *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(h.JWT))
 		r.Get("/profile", h.HandleProfile)
-		r.Delete("/delete", h.DeleteUser)
+		r.Delete("/users/{id}", h.DeleteUser)
 		r.Get("/users", h.GetAllUsers)
-		r.Put("/users", h.UpdateUser)
+		r.Put("/users/{id}", h.UpdateUser)
 	})
 	return r
 }
