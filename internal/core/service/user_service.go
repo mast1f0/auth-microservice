@@ -76,13 +76,7 @@ func (service *UserService) UpdateUser(userId int64, role domain.Role) error {
 	}
 	err := service.UsersRepository.UpdateUser(userId, role)
 	if err != nil {
-		if errors.Is(err, ports.ErrFailedToLoad) {
-			return ErrInternalServer
-		}
-		if errors.Is(err, ports.ErrFailedToUpdate) {
-			return ErrInternalServer
-		}
-		return err
+		return ErrInternalServer
 	}
 	return nil
 }

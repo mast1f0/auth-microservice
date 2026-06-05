@@ -45,7 +45,7 @@ func main() {
 	handler := handlers.NewHandlers(userService, &manager)
 	router := server.NewRouter(handler)
 	go func() { log.Println(http.ListenAndServe("localhost:6060", nil)) }()
-	srv := server.NewServer(router)
+	srv := server.NewServer(":8081", router)
 	if err := srv.Run(); err != nil {
 		log.Println(err)
 	}
