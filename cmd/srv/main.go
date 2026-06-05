@@ -35,8 +35,7 @@ func main() {
 
 	db, err := database.NewDatabase()
 	if err != nil {
-		log.Println("Не удалось подключиться к бд:", err)
-		return
+		log.Fatal("Не удалось подключиться к бд:", err)
 	}
 	manager := jwtutil.Manager{
 		Secret: []byte(os.Getenv("JWT_SECRET")),

@@ -16,4 +16,4 @@ COPY --from=builder /app /auth/app
 
 EXPOSE 8081
 
-CMD ["./app", "-seed"]
+CMD ["sh", "-c", "./app -seed && exec ./app"]
