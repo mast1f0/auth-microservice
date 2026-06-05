@@ -3,6 +3,7 @@ package service
 import (
 	"auth-microservice/internal/core/domain"
 	"auth-microservice/internal/core/ports"
+	"context"
 	"errors"
 )
 
@@ -18,14 +19,14 @@ func NewService(usersRepository ports.UsersRepository, passwordCheckerRepository
 	}
 }
 
-func (service *UserService) UserByID(id int64) (*domain.User, error) {
+func (service *UserService) UserByID(ctx context.Context, id int64) (*domain.User, error) {
 	if id < 1 {
 		return nil, ErrInvalidId
 	}
-	return service.UsersRepository.UserByID(id)
+	return service.UsersRepository.UserByID(ctx, id)
 }
 
-func (service *UserService) AddUser(login string, password string, role domain.Role) (*domain.User, error) {
+func (service *UserService) AddUser(ctx context.Context, login string, password string, role domain.Role) (*domain.User, error) {
 	if len(login) < 3 {
 		return nil, ErrLoginTooShort
 	}
@@ -34,15 +35,15 @@ func (service *UserService) AddUser(login string, password string, role domain.R
 		return nil, ErrPasswordTooShort
 	}
 
-	return service.UsersRepository.AddUser(&domain.User{
+	return service.UsersRepository.AddUser(ctx, &domain.User{
 		Login:     login,
 		HashedPwd: service.PasswordChecker.HashPassword(password),
 		Role:      role,
 	})
 }
 
-func (service *UserService) UserByLogin(login string, password string) (*domain.User, error) {
-	usr, err := service.UsersRepository.UserByLogin(login)
+func (service *UserService) UserByLogin(ctx context.Context, login string, password string) (*domain.User, error) {
+	usr, err := service.UsersRepository.UserByLogin(ctx, login)
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
@@ -52,15 +53,15 @@ func (service *UserService) UserByLogin(login string, password string) (*domain.
 	return nil, ErrInvalidCredentials
 }
 
-func (service *UserService) DeleteUser(id int64) error {
+func (service *UserService) DeleteUser(ctx context.Context, id int64) error {
 	if id < 1 {
 		return ErrInvalidId
 	}
-	return service.UsersRepository.DeleteUser(id)
+	return service.UsersRepository.DeleteUser(ctx, id)
 }
 
-func (service *UserService) AllUsers() ([]*domain.User, error) {
-	users, err := service.UsersRepository.GetAllUsers()
+func (service *UserService) AllUsers(ctx context.Context) ([]*domain.User, error) {
+	users, err := service.UsersRepository.GetAllUsers(ctx)
 	if err != nil {
 		if errors.Is(err, ports.ErrFailedToLoad) {
 			return []*domain.User{}, ErrInternalServer
@@ -70,11 +71,11 @@ func (service *UserService) AllUsers() ([]*domain.User, error) {
 	return users, nil
 }
 
-func (service *UserService) UpdateUser(userId int64, role domain.Role) error {
+func (service *UserService) UpdateUser(ctx context.Context, userId int64, role domain.Role) error {
 	if userId < 1 {
 		return ErrInvalidId
 	}
-	err := service.UsersRepository.UpdateUser(userId, role)
+	err := service.UsersRepository.UpdateUser(ctx, userId, role)
 	if err != nil {
 		return ErrInternalServer
 	}

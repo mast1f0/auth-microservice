@@ -3,6 +3,7 @@ package database
 import (
 	"auth-microservice/internal/core/domain"
 	"auth-microservice/internal/core/ports"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,9 +18,9 @@ type Database struct {
 	DB *sql.DB
 }
 
-func (db *Database) UserByID(id int64) (*domain.User, error) {
+func (db *Database) UserByID(ctx context.Context, id int64) (*domain.User, error) {
 	var usr domain.User
-	err := db.DB.QueryRow(
+	err := db.DB.QueryRowContext(ctx,
 		`SELECT u.id, u.login, u.password_hash, r.name, u.created_at
 		 FROM users u
 		 JOIN roles r ON r.id = u.role_id
@@ -35,9 +36,9 @@ func (db *Database) UserByID(id int64) (*domain.User, error) {
 	return &usr, nil
 }
 
-func (db *Database) UserExists(login string) bool {
+func (db *Database) UserExists(ctx context.Context, login string) bool {
 	var exists bool
-	err := db.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)`, login).Scan(&exists)
+	err := db.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)`, login).Scan(&exists)
 	if err != nil {
 		log.Println("failed to check user existence")
 		return false
@@ -45,13 +46,13 @@ func (db *Database) UserExists(login string) bool {
 	return exists
 }
 
-func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
+func (db *Database) AddUser(ctx context.Context, user *domain.User) (*domain.User, error) {
 	var (
 		id        int64
 		createdAt = time.Now()
 	)
 
-	err := db.DB.QueryRow(
+	err := db.DB.QueryRowContext(ctx,
 		`INSERT INTO users (login, password_hash, role_id, created_at)
 		 VALUES (
 			$1,
@@ -72,9 +73,9 @@ func (db *Database) AddUser(user *domain.User) (*domain.User, error) {
 	return &domain.User{Id: id, Login: user.Login, Role: user.Role, CreatedAt: createdAt}, nil
 }
 
-func (db *Database) UserByLogin(login string) (*domain.User, error) {
+func (db *Database) UserByLogin(ctx context.Context, login string) (*domain.User, error) {
 	var usr domain.User
-	err := db.DB.QueryRow(
+	err := db.DB.QueryRowContext(ctx,
 		`SELECT u.id, u.login, u.password_hash, r.name, u.created_at
 		 FROM users u
 		 JOIN roles r ON r.id = u.role_id
@@ -92,15 +93,15 @@ func (db *Database) UserByLogin(login string) (*domain.User, error) {
 	return &usr, nil
 }
 
-func (db *Database) DeleteUser(id int64) error {
-	_, err := db.DB.Exec("DELETE FROM users WHERE id = $1", id)
+func (db *Database) DeleteUser(ctx context.Context, id int64) error {
+	_, err := db.DB.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db *Database) GetAllUsers() ([]*domain.User, error) {
+func (db *Database) GetAllUsers(ctx context.Context) ([]*domain.User, error) {
 	users := make([]*domain.User, 0)
 	query := `
         SELECT u.id, u.login, r.name, u.created_at
@@ -108,7 +109,7 @@ func (db *Database) GetAllUsers() ([]*domain.User, error) {
         JOIN roles r ON u.role_id = r.id
         ORDER BY u.id
     `
-	rows, err := db.DB.Query(query)
+	rows, err := db.DB.QueryContext(ctx, query)
 	if err != nil {
 		log.Println(err)
 		return nil, ports.ErrFailedToLoad
@@ -131,13 +132,13 @@ func (db *Database) GetAllUsers() ([]*domain.User, error) {
 	return users, nil
 }
 
-func (db *Database) UpdateUser(userId int64, newRole domain.Role) error {
+func (db *Database) UpdateUser(ctx context.Context, userId int64, newRole domain.Role) error {
 	query := `
         UPDATE users 
         SET role_id = (SELECT id FROM roles WHERE name = $1)
         WHERE id = $2
     `
-	_, err := db.DB.Exec(query, newRole, userId)
+	_, err := db.DB.ExecContext(ctx, query, newRole, userId)
 	if err != nil {
 		return ports.ErrFailedToUpdate
 	}

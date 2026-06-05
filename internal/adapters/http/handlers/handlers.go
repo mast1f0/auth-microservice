@@ -29,6 +29,7 @@ func NewHandlers(service *service.UserService, jwt *jwtutil.Manager) *Handlers {
 }
 
 func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req dto.LoginReq
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -39,7 +40,7 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	user, err := h.Service.UserByLogin(req.Login, req.Password)
+	user, err := h.Service.UserByLogin(ctx, req.Login, req.Password)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) || errors.Is(err, service.ErrUserNotFound) {
 			helpers.RespondWithError(w, http.StatusUnauthorized, "invalid credentials")
@@ -59,6 +60,7 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var req dto.RegisterUser
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -66,7 +68,7 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.Service.AddUser(req.Login, req.Password, defaultRole)
+	user, err := h.Service.AddUser(ctx, req.Login, req.Password, defaultRole)
 	if err != nil {
 		if errors.Is(err, service.ErrLoginTooShort) || errors.Is(err, service.ErrPasswordTooShort) {
 			helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
@@ -84,12 +86,13 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	userID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
 		helpers.RespondWithError(w, http.StatusInternalServerError, "CANT_GET_USER_ID")
 		return
 	}
-	usr, err := h.Service.UserByID(userID)
+	usr, err := h.Service.UserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
 			helpers.RespondWithError(w, http.StatusNotFound, err.Error())
@@ -105,6 +108,8 @@ func (h *Handlers) HandleProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	idStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(idStr, 10, 64)
 	currentID, ok := r.Context().Value("user_id").(int64)
@@ -127,7 +132,7 @@ func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		helpers.RespondWithError(w, http.StatusForbidden, "Permission denied")
 		return
 	}
-	err = h.Service.DeleteUser(userID)
+	err = h.Service.DeleteUser(ctx, userID)
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -136,7 +141,9 @@ func (h *Handlers) DeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.Service.AllUsers()
+	ctx := r.Context()
+
+	users, err := h.Service.AllUsers(ctx)
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -145,6 +152,8 @@ func (h *Handlers) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	idStr := chi.URLParam(r, "id")
 	userID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -171,7 +180,7 @@ func (h *Handlers) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		helpers.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	err = h.Service.UpdateUser(userID, domain.Role(req.Role))
+	err = h.Service.UpdateUser(ctx, userID, domain.Role(req.Role))
 	if err != nil {
 		helpers.RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
